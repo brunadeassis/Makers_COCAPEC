@@ -1,4 +1,4 @@
-#define LOG "08/12/2025"
+#define LOG "05/01/2026"
 
 #include <Servo.h>
 #include <gcode.h>
@@ -14,10 +14,15 @@ void offset(); //offset entre l'outil et la machine -> G54 X[n] Y[n] Z[n]
 
 /*
 G28 - HOMING
-G0 - SET COORDINATES -> G0 X{n} Y{n}
+G00 - Mouvement linéaire rapide -> G00 X## Y## Z## F####
+G01 - Mouvement linéaire lent -> G00 X## Y## Z## F####
+G90 - Mouvement absolut
+G91 - Mouvement relative
+M18 - disable motors
+M100 - help message
 */
 
-commandscallback commands[NUM] = {{"G1", homing}, {"G0", gotoLocation}};
+commandscallback commands[NUM] = {{"G28", homing}, {"G90", absolute},{"G91", relative},{"G00", gotoLocation},{"G01", drying},{"M18", stopMotors},{"M100", help}};
 gcode Commands(NUM, commands);
  
 // Moteur 3 (stepperX)
@@ -45,6 +50,7 @@ gcode Commands(NUM, commands);
 // LOW = Étalonage
 // HIGH = Operation
 volatile byte state = HIGH;
+volatile byte mode = HIGH; // HIGH = Absolute, LOW = Relative
 
 Servo moteurZ; // Fils : blanc = signal, noir = gnd, rouge = 5V
 
@@ -59,7 +65,7 @@ Servo moteurZ; // Fils : blanc = signal, noir = gnd, rouge = 5V
 // Anciens positions
 int X = 0;
 int Y = 0;
-int Z = 0;
+//int Z = 0;
 
 void setup() {
   // Communication avec la Raspberry
@@ -90,7 +96,6 @@ void setup() {
 //  help();
 }
 
-
 void homing(){
   Serial.println("Homing ON");
   delay(2000);
@@ -119,27 +124,77 @@ void homing(){
 
   delay(1000); 
   Serial.println("Homing OFF");
-  X = 0; Y = 0; Z = 0;
+  X = 0; Y = 0; //Z = 0;
 }
 
 void gotoLocation(){
-    int newX = X, newY = Y, newZ = Z; // (x, y, z) coordonnées du compartiment, act = 1 si l'appareil à lumiere doit être activé
+    //int newX, newY, newZ, vitesse;
+    int newX, newY;
+    digitalWrite(lumiere,LOW);
 
     if(Commands.availableValue('X')){ newX = Commands.GetValue('X'); }
     if(Commands.availableValue('Y')){ newY = Commands.GetValue('Y'); }
-    if(Commands.availableValue('Z')){ newZ = Commands.GetValue('Z'); }  
+    //if(Commands.availableValue('Z')){ newZ = Commands.GetValue('Z'); }  
+    //if(Commands.availableValue('F')){ vitesse = Commands.GetValue('F')}
 
-    mouvement(newX - X, AXE_X);
-    mouvement(newY - Y, AXE_Y);
-    mouvement(newZ - Z, AXE_Z);
+    if(mode){
+      mouvement(newX - X, AXE_X);
+      mouvement(newY - Y, AXE_Y);
+      //mouvement(newZ - Z, AXE_Z);
 
-    X = newX;
-    Y = newY;
-    Z = newZ;
+      X = newX;
+      Y = newY;
+      //Z = newZ;
+    } else {
+      mouvement(newX, AXE_X);
+      mouvement(newY, AXE_Y);
+      //mouvement(newZ, AXE_Z);
+
+      X = X + newX;
+      Y = Y + newY;
+      //Z = Z + newZ;
+    }
+    
     
     delay(1000); // Temps pour permettre à l'appareil à lumiere de bien adhérer au composant
   
-    Commands.comment("X:" + String(X) + "; Y:" + String(Y) + "; Z:" +String(Z)); // DEBUG SERIAL
+    //Commands.comment("X:" + String(X) + "; Y:" + String(Y) + "; Z:" +String(Z)); // DEBUG SERIAL
+    Commands.comment("X:" + String(X) + "; Y:" + String(Y)); // DEBUG SERIAL
+}
+
+void drying(){
+    //int newX, newY, newZ, vitesse;
+    int newX, newY;
+    digitalWrite(lumiere,HIGH);
+
+    if(Commands.availableValue('X')){ newX = Commands.GetValue('X'); }
+    if(Commands.availableValue('Y')){ newY = Commands.GetValue('Y'); }
+    //if(Commands.availableValue('Z')){ newZ = Commands.GetValue('Z'); }  
+    //if(Commands.availableValue('F')){ vitesse = Commands.GetValue('F')}
+
+    if(mode){
+      mouvement(newX - X, AXE_X);
+      mouvement(newY - Y, AXE_Y);
+      //mouvement(newZ - Z, AXE_Z);
+
+      X = newX;
+      Y = newY;
+      //Z = newZ;
+    } else {
+      mouvement(newX, AXE_X);
+      mouvement(newY, AXE_Y);
+      //mouvement(newZ, AXE_Z);
+
+      X = X + newX;
+      Y = Y + newY;
+      //Z = Z + newZ;
+    }
+    
+    
+    delay(1000); // Temps pour permettre à l'appareil à lumiere de bien adhérer au composant
+  
+    //Commands.comment("X:" + String(X) + "; Y:" + String(Y) + "; Z:" +String(Z)); // DEBUG SERIAL
+    Commands.comment("X:" + String(X) + "; Y:" + String(Y)); // DEBUG SERIAL
 }
 
 void mouvement(signed int distance, unsigned int axe) { // distance en mm
@@ -196,31 +251,34 @@ void mouvement(signed int distance, unsigned int axe) { // distance en mm
   }
 }
 
-/**
- * Presente les commandes
- */
+void absolute(){  mode = HIGH;  }
+
+void relative(){  mode = LOW;  }
+
 void help() {
-  Serial.print(F("CNC Robot "));
+  Serial.print(F("CNC : Robot pour lumière pulsée - LOG : "));
   Serial.println(LOG);
   Serial.println(F("Commands:"));
-  Serial.println(F("G00 [X(steps)] [Y(steps)] [F(feedrate)]; - linear move"));
-  Serial.println(F("G01 [X(steps)] [Y(steps)] [F(feedrate)]; - linear move"));
-  Serial.println(F("G04 P[seconds]; - delay"));
+  Serial.println(F("G28 - Homing"));
+  Serial.println(F("G00 [X(steps)] [Y(steps)] [Z(steps)] [F(feedrate)]; - linear move"));
+  Serial.println(F("G01 [X(steps)] [Y(steps)] [Z(steps)] [F(feedrate)]; - linear move"));
   Serial.println(F("G90; - absolute mode"));
   Serial.println(F("G91; - relative mode"));
-  Serial.println(F("G92 [X(steps)] [Y(steps)]; - change logical position"));
   Serial.println(F("M18; - disable motors"));
-  Serial.println(F("M100; - this help message"));
-  Serial.println(F("M114; - report position and feedrate"));
+  Serial.println(F("M100; - help message"));
+  //Serial.println(F("G04 P[seconds]; - delay"));
+  //Serial.println(F("G92 [X(steps)] [Y(steps)]; - change logical position"));
+  //Serial.println(F("M114; - report position and feedrate"));
 }
 
-void interruptX(){
-    state = LOW;
+void stopMotors(){
+  digitalWrite(enX, HIGH);
+  digitalWrite(enY, HIGH);
 }
 
-void interruptY(){
-    state = LOW;
-}
+void interruptX(){  state = LOW;  }
+
+void interruptY(){  state = LOW;  }
 
 void loop() {
   if(state == HIGH){
