@@ -6,11 +6,14 @@
 void mouvement(signed int distance, unsigned int axe); // Mouvement lineaire avec la vitesse F[n] -> G1 X[n] Y[n] Z[n] F[n]
 void gotoLocation(); // Mouvement vite -> G0 X[n] Y[n] Z[n] 
 void homing(); // Identifier le position pour l'etalonnage
-void offset(); //offset entre l'outil et la machine -> G54 X[n] Y[n] Z[n]
-
+void absolute();
+void relative();
+void drying();
+void help();
+void stopMotors();
 
 // Commandes GCODE
-#define NUM 2
+#define NUM 7
 
 /*
 G28 - HOMING
@@ -98,6 +101,7 @@ void setup() {
 
 void homing(){
   Serial.println("Homing ON");
+  state = HIGH;
   delay(2000);
 
   digitalWrite(enY, LOW);
@@ -124,12 +128,13 @@ void homing(){
 
   delay(1000); 
   Serial.println("Homing OFF");
+  state = HIGH;
   X = 0; Y = 0; //Z = 0;
 }
 
 void gotoLocation(){
-    //int newX, newY, newZ, vitesse;
-    int newX, newY;
+    //int newX = X, newY= Y, newZ = Z, vitesse;
+    int newX = X, newY= Y;
     digitalWrite(lumiere,LOW);
 
     if(Commands.availableValue('X')){ newX = Commands.GetValue('X'); }
@@ -163,8 +168,8 @@ void gotoLocation(){
 }
 
 void drying(){
-    //int newX, newY, newZ, vitesse;
-    int newX, newY;
+    //int newX = X, newY= Y, newZ = Z, vitesse;
+    int newX = X, newY = Y;
     digitalWrite(lumiere,HIGH);
 
     if(Commands.availableValue('X')){ newX = Commands.GetValue('X'); }
@@ -212,7 +217,7 @@ void mouvement(signed int distance, unsigned int axe) { // distance en mm
         digitalWrite(dirX, HIGH);
         distance = -distance;
       }
-      while (pas <= PAS_PAR_MM_X * distance) {
+      while (pas <= (unsigned long) PAS_PAR_MM_X * distance) {
         if (state == LOW && distance > 5) break;
         
         digitalWrite(stepX, HIGH);
@@ -232,7 +237,7 @@ void mouvement(signed int distance, unsigned int axe) { // distance en mm
         digitalWrite(dirY, HIGH);
         distance = -distance;
       }
-      while (pas <= PAS_PAR_MM_Y * distance) {
+      while (pas <= (unsigned long) PAS_PAR_MM_Y * distance) {
         if (state == LOW && distance > 5) break;
       
         digitalWrite(stepY, HIGH);
