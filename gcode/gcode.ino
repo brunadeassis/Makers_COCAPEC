@@ -11,6 +11,7 @@ void relative();
 void drying();
 void help();
 void stopMotors();
+void etallonageZ();
 
 // Commandes GCODE
 #define NUM 7
@@ -39,6 +40,8 @@ gcode Commands(NUM, commands);
 #define enY 6 // Actif à l'état bas
 
 // Moteur Z : pin 10
+#define Z_PLUS 13
+#define Z_MOINS 12
 
 // Sortie de l'appareil à lumiere
 #define lumiere 11
@@ -68,7 +71,7 @@ Servo moteurZ; // Fils : blanc = signal, noir = gnd, rouge = 5V
 // Anciens positions
 int X = 0;
 int Y = 0;
-//int Z = 0;
+int Z = 90;
 
 void setup() {
   // Communication avec la Raspberry
@@ -84,6 +87,9 @@ void setup() {
 
   // Moteur 4 (Z)
   moteurZ.attach(10); // signal du servo sur le pin 10
+  moteurZ.write(Z);
+  pinMode(Z_PLUS, INPUT);
+  pinMode(Z_MOINS, INPUT);
 
   // Appareil à lumiere
   pinMode(lumiere, OUTPUT);
@@ -97,6 +103,20 @@ void setup() {
 
   homing();
 //  help();
+}
+
+void etallonageZ(){
+  if(digitalRead(Z_PLUS) == 0){
+    if(Z < 180) Z++;
+    moteurZ.write(Z);
+    delay(30);
+  }
+
+  if(digitalRead(Z_MOINS) == 0){
+    if(Z > 0) Z--;
+    moteurZ.write(Z);
+    delay(30);
+  }
 }
 
 void homing(){
@@ -125,11 +145,21 @@ void homing(){
   }
   mouvement(5, AXE_X); // Sortir de le capteur
   digitalWrite(enX, HIGH);
+  X = 0; Y = 0;
 
   delay(1000); 
+  digitalWrite("Étalonnage de l'axe Z - Quelque commande pour finir");
+  
+  while(Serial.available() == 0){
+    etallonageZ();
+    delay(20);
+    if (state == LOW) break;
+  }
+
+
   Serial.println("Homing OFF");
   state = HIGH;
-  X = 0; Y = 0; //Z = 0;
+  X = 0; Y = 0; Z = 0;
 }
 
 void gotoLocation(){
