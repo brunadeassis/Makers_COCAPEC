@@ -30,9 +30,9 @@ void rodarMotor(int stepPin, int dirPin, int voltas, String nome) {
   digitalWrite(dirPin, HIGH);
   for(int i = 0; i < voltas; i++) {
     digitalWrite(stepPin, HIGH);
-    delayMicroseconds(800); // Velocidade mais lenta e segura para teste
+    delayMicroseconds(400); // Velocidade mais lenta e segura para teste
     digitalWrite(stepPin, LOW);
-    delayMicroseconds(800);
+    delayMicroseconds(400);
   }
   
   delay(500);
@@ -41,14 +41,14 @@ void rodarMotor(int stepPin, int dirPin, int voltas, String nome) {
   digitalWrite(dirPin, LOW);
   for(int i = 0; i < voltas; i++) {
     digitalWrite(stepPin, HIGH);
-    delayMicroseconds(800);
+    delayMicroseconds(400);
     digitalWrite(stepPin, LOW);
-    delayMicroseconds(800);
+    delayMicroseconds(400);
   }
 }
 
 void loop() {
-  rodarMotor(stepX, dirX, 2000, "Eixo X");
+  rodarMotor(stepX, dirX, 500, "Eixo X");
   delay(1000);
   rodarMotor(stepY, dirY, 2000, "Eixo Y");
   delay(1000);
