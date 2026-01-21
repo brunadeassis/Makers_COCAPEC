@@ -3,7 +3,7 @@
 #include <Servo.h>
 #include <gcode.h>
 
-void mouvement(long distance, unsigned int axe); // Mouvement lineaire avec la vitesse F[n] -> G1 X[n] Y[n] Z[n] F[n]
+void mouvement(long distance, unsigned int axe); // Mouvement lineaire -> G1 X[n] Y[n] Z[n]
 void gotoLocation(); // Mouvement vite -> G0 X[n] Y[n] Z[n] 
 void homing(); // Identifier le position pour l'etalonnage
 void absolute();
@@ -18,21 +18,21 @@ void etallonageZ();
 
 /*
 G28 - HOMING
-G00 = G0 - Mouvement linéaire rapide -> G00 X## Y## Z## F####
-G01 = G1 - Mouvement linéaire lent -> G00 X## Y## Z## F####
-G90 - Mouvement absolut
-G91 - Mouvement relative
-M18 - disable motors
-M100 - help message
+G00 = G0 - Mouvement linéaire sans lumière -> G00 X## Y## Z## F####
+G01 = G1 - Mouvement linéaire avec lumièret -> G00 X## Y## Z## F####
+G90 - Mouvement absolu
+G91 - Mouvement relatif
+M18 - Désactive les moteurs
+M100 - Message d'aide
 */
 
 commandscallback commands[NUM] = {{"G28", homing}, {"G90", absolute},{"G91", relative},{"G00", gotoLocation},{"G0", gotoLocation},{"G01", drying},{"G1", drying},{"M18", stopMotors},{"M100", help}};
 gcode Commands(NUM, commands);
  
 // Moteur 3 (stepperX)
-#define stepX A0 // Antigo 7
-#define dirX A1 // Antigo 8
-#define enX A2 // Antigo 9 // Actif à l'état bas
+#define stepX A0
+#define dirX A1
+#define enX A2 // Actif à l'état bas
 
 // Moteurs 1&2 (stepperY)
 #define stepY 4
@@ -42,7 +42,7 @@ gcode Commands(NUM, commands);
 // Moteur Z : pin 10
 #define Z_PLUS 13
 #define Z_MOINS 12
-Servo moteurZ; // Fils : blanc = signal, noir = gnd, rouge = 5V
+Servo moteurZ; // Fils : blanc = signal, noir = GND, rouge = 5V
 int offsetZ = 0;
 
 // Sortie de l'appareil à lumiere
@@ -51,31 +51,31 @@ int offsetZ = 0;
 #define AXE_X 1
 #define AXE_Y 2
 #define AXE_Z 3
-#define PAS_PAR_MM_X 100  // Correia GT2 + Polia 20 dentes !!! 
-#define PAS_PAR_MM_Y 400 // Fuso T8 (Lead 8mm) !!! TROQUEI DE 200 PARA 400
+#define PAS_PAR_MM_X 100  // Courroie GT2 + Poulie 20 dents
+#define PAS_PAR_MM_Y 400 // Broche T8 (Lead 8mm)
  
-// "Flag" de function
-// LOW = Étalonage
-// HIGH = Operation
+// "Flag" de fonction
+// LOW = Étalonnage
+// HIGH = Opération
 volatile byte state = HIGH;
-volatile byte mode = HIGH; // HIGH = Absolute, LOW = Relative
+volatile byte mode = HIGH; // HIGH = Absolu, LOW = Relatif
 
 // Capteur de fin de course
 #define interruptCapY 3
 #define interruptCapX 2
 
 // Structure de communication GCODE
-#define BAUD (115200) // How fast is the Arduino talking?
-#define MAX_BUF (64) // What is the longest message Arduino can store?
+#define BAUD (115200)
+#define MAX_BUF (64)
 
-// Anciens positions
+// Anciennes positions
 int X = 0;
 int Y = 0;
 int Z = 90;
 
 void setup() {
   // Communication avec la Raspberry
-  Serial.begin(BAUD);  // Initialisation de la communication série USB (avec la Raspberry)
+  Serial.begin(BAUD);  // Initialisation de la communication série USB
   
   pinMode(stepX, OUTPUT);
   pinMode(dirX, OUTPUT);
@@ -86,7 +86,7 @@ void setup() {
   pinMode(enY, OUTPUT);
 
   // Moteur 4 (Z)
-  moteurZ.attach(10); // signal du servo sur le pin 10
+  moteurZ.attach(10); // signal du servo - pin 10
   moteurZ.write(Z);
   pinMode(Z_PLUS, INPUT);
   pinMode(Z_MOINS, INPUT);
@@ -102,7 +102,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(interruptCapX), interruptX, FALLING);
 
   Serial.println("Éloignez-vous du système - Temps d’attente de 15 secondes");
-  delay(2000);
+  delay(15000);
   homing();
 //  help();
 }
@@ -122,10 +122,9 @@ void etallonageZ(){
 }
 
 void homing(){
-  Serial.println("Homing ON");
+  Serial.println("Homing activé");
   state = HIGH;
-  delay(2000);
-
+  
   digitalWrite(enY, LOW);
   digitalWrite(dirY, LOW);
   while(digitalRead(interruptCapY)){
@@ -134,7 +133,7 @@ void homing(){
     digitalWrite(stepY, LOW);
     delayMicroseconds(500);
   }
-  mouvement(2, AXE_Y); // Sortir de le capteur
+  mouvement(2, AXE_Y); // Sortir du capteur
   digitalWrite(enY, HIGH);
   
   digitalWrite(enX, LOW);
@@ -145,7 +144,7 @@ void homing(){
     digitalWrite(stepX, LOW);
     delayMicroseconds(600);
   }
-  mouvement(2, AXE_X); // Sortir de le capteur
+  mouvement(2, AXE_X); // Sortir du capteur
   digitalWrite(enX, HIGH);
   X = 0; Y = 0;
 
@@ -158,8 +157,8 @@ void homing(){
     etallonageZ();
     delay(20);
     if (state == LOW) {
-       Serial.println("Aviso: Sensor acionado durante espera. Reiniciando state.");
-       state = HIGH; // Impede que saia sozinho se esbarrar no sensor
+       Serial.println("Avertissement : Capteur déclenché pendant l’attente. Redémarrage de l’état.");
+       state = HIGH;
     }
   }
 
@@ -167,7 +166,7 @@ void homing(){
      Serial.read(); 
   }
 
-  Serial.println("Homing OFF - Aguardando comandos GCODE");
+  Serial.println("Homing OFF - En attente de commandes GCODE");
   state = HIGH;
   X = 0; Y = 0;
 }
@@ -201,16 +200,14 @@ void gotoLocation(){
       X = X + newX; Y = Y + newY; Z = targetZ;
     }
     
-    delay(1000); // Temps pour permettre à l'appareil à lumiere de bien adhérer au composant
+    delay(1000);
   
     Commands.comment("X:" + String(X) + "; Y:" + String(Y) + "; Z:" +String(Z)); // DEBUG SERIAL
-    //Commands.comment("X:" + String(X) + "; Y:" + String(Y)); // DEBUG SERIAL
 }
 
 void drying(){
     //Serial.println(">> G01 Reçu");
     int newX = X, newY= Y, newZ = Z;
-    //int newX = X, newY = Y;
     digitalWrite(lumiere,HIGH);
 
     if(Commands.availableValue('X')){ newX = Commands.GetValue('X'); }
@@ -237,10 +234,9 @@ void drying(){
       X = X + newX; Y = Y + newY; Z = targetZ;
     }
     
-    delay(1000); // Temps pour permettre à l'appareil à lumiere de bien adhérer au composant
+    delay(1000);
   
     Commands.comment("X:" + String(X) + "; Y:" + String(Y) + "; Z:" +String(Z)); // DEBUG SERIAL
-    //Commands.comment("X:" + String(X) + "; Y:" + String(Y)); // DEBUG SERIAL
 }
 
 void mouvement(long distance, unsigned int axe) { // distance en mm
@@ -308,8 +304,8 @@ void help() {
   Serial.println(LOG);
   Serial.println(F("Commands:"));
   Serial.println(F("G28 - Homing"));
-  Serial.println(F("G00 [X(steps)] [Y(steps)] [Z(steps)] [F(feedrate)]; - linear move"));
-  Serial.println(F("G01 [X(steps)] [Y(steps)] [Z(steps)] [F(feedrate)]; - linear move"));
+  Serial.println(F("G00 [X(steps)] [Y(steps)] [Z(steps)]; - Mouvement linéaire sans lumière"));
+  Serial.println(F("G01 [X(steps)] [Y(steps)] [Z(steps)]; - Mouvement linéaire avec lumière"));
   Serial.println(F("G90; - absolute mode"));
   Serial.println(F("G91; - relative mode"));
   Serial.println(F("M18; - disable motors"));
@@ -334,19 +330,19 @@ void loop() {
     Commands.available();
   }
   else {
-    Serial.println("ALERTA : Motor travado");
+    Serial.println("AVERTISSEMENT : Moteur bloqué");
     if(!digitalRead(interruptCapY)){
-      Serial.println("Destravando Y...");
+      Serial.println("Déverrouiller Y...");
       mouvement(2, AXE_Y);
     }
     
     if(!digitalRead(interruptCapX)){
-      Serial.println("Destravando X...");
+      Serial.println("Déverrouiller X...");
       mouvement(2, AXE_X);
     }
 
     if(digitalRead(interruptCapX) && digitalRead(interruptCapY)){
-        Serial.println("Sensores liberados. Retomando...");
+        Serial.println("Capteurs libérés. Reprise...");
         delay(2000);
         state = HIGH;
     } else {
