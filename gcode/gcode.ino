@@ -1,4 +1,4 @@
-#define LOG "14/01/2026"
+#define LOG "19/01/2026"
 
 #include <Servo.h>
 #include <gcode.h>
@@ -208,7 +208,7 @@ void gotoLocation(){
 }
 
 void drying(){
-    Serial.println(">> G01 Reçu");
+    //Serial.println(">> G01 Reçu");
     int newX = X, newY= Y, newZ = Z;
     //int newX = X, newY = Y;
     digitalWrite(lumiere,HIGH);
